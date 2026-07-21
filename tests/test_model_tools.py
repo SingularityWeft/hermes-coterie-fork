@@ -20,6 +20,33 @@ from model_tools import (
 # =========================================================================
 
 class TestHandleFunctionCall:
+    def test_session_allowlist_allows_enabled_tool(self):
+        with patch("model_tools.registry.dispatch", return_value='{"ok":true}') as dispatch:
+            result = handle_function_call(
+                "web_search", {"q": "synthetic"}, enabled_tools=["web_search"]
+            )
+
+        assert result == '{"ok":true}'
+        dispatch.assert_called_once()
+
+    @pytest.mark.parametrize("enabled_tools", [[], ["clarify"]])
+    def test_session_allowlist_blocks_registered_but_disabled_tool(self, enabled_tools):
+        with (
+            patch("model_tools.registry.dispatch") as dispatch,
+            patch("hermes_cli.plugins.invoke_hook") as hooks,
+        ):
+            result = json.loads(handle_function_call(
+                "terminal",
+                {"command": "touch /private/tmp/must-not-exist"},
+                enabled_tools=enabled_tools,
+            ))
+
+        assert result == {
+            "error": "Tool 'terminal' is not enabled for this session"
+        }
+        dispatch.assert_not_called()
+        hooks.assert_not_called()
+
     def test_agent_loop_tool_returns_error(self):
         for tool_name in _AGENT_LOOP_TOOLS:
             result = json.loads(handle_function_call(tool_name, {}))

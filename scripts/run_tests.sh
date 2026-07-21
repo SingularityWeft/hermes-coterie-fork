@@ -27,7 +27,11 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Prefer a .venv in the current tree, fall back to the main checkout's venv
 # (useful for worktrees where we don't always duplicate the venv).
 VENV=""
-for candidate in "$REPO_ROOT/.venv" "$REPO_ROOT/venv" "$HOME/.hermes/hermes-agent/venv"; do
+for candidate in \
+  "$REPO_ROOT/.venv" \
+  "$REPO_ROOT/venv" \
+  "$HOME/.hermes/venv" \
+  "$HOME/.hermes/hermes-agent/venv"; do
   if [ -f "$candidate/bin/activate" ]; then
     VENV="$candidate"
     break
@@ -35,7 +39,7 @@ for candidate in "$REPO_ROOT/.venv" "$REPO_ROOT/venv" "$HOME/.hermes/hermes-agen
 done
 
 if [ -z "$VENV" ]; then
-  echo "error: no virtualenv found in $REPO_ROOT/.venv or $REPO_ROOT/venv" >&2
+  echo "error: no Hermes virtualenv found for $REPO_ROOT" >&2
   exit 1
 fi
 

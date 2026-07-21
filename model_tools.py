@@ -756,14 +756,26 @@ def handle_function_call(
         function_args: Arguments for the function.
         task_id: Unique identifier for terminal/browser session isolation.
         user_task: The user's original task (for browser_snapshot context).
-        enabled_tools: Tool names enabled for this session.  When provided,
-                       execute_code uses this list to determine which sandbox
-                       tools to generate.  Falls back to the process-global
-                       ``_last_resolved_tool_names`` for backward compat.
+        enabled_tools: Session-scoped tool allowlist. When provided, the
+                       requested function must be present or dispatch is
+                       denied. ``execute_code`` also uses this list to
+                       determine which sandbox tools to generate. It falls
+                       back to the process-global ``_last_resolved_tool_names``
+                       only when the caller omits the allowlist.
 
     Returns:
         Function result as a JSON string.
     """
+    # Defense in depth: callers that provide a session-scoped tool allowlist
+    # must never be able to dispatch a registered-but-disabled tool. The
+    # conversation loop validates model tool calls before reaching this
+    # dispatcher, but direct/internal callers use this function too. An
+    # explicit empty list means that the session has no executable tools.
+    if enabled_tools is not None and function_name not in set(enabled_tools):
+        return json.dumps({
+            "error": f"Tool '{function_name}' is not enabled for this session"
+        }, ensure_ascii=False)
+
     # Coerce string arguments to their schema-declared types (e.g. "42"→42)
     function_args = coerce_tool_args(function_name, function_args)
 

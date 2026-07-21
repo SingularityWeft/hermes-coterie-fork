@@ -2163,6 +2163,15 @@ class TestConcurrentToolExecution:
             )
             assert result == "result"
 
+    def test_invoke_tool_passes_explicit_empty_session_allowlist(self, agent):
+        """A tool-less session must not fall back to unrestricted dispatch."""
+        agent.valid_tool_names = set()
+        with patch("run_agent.handle_function_call", return_value="blocked") as mock_hfc:
+            result = agent._invoke_tool("terminal", {"command": "true"}, "task-1")
+
+        assert result == "blocked"
+        assert mock_hfc.call_args.kwargs["enabled_tools"] == []
+
     def test_sequential_tool_callbacks_fire_in_order(self, agent):
         tool_call = _mock_tool_call(name="web_search", arguments='{"query":"hello"}', call_id="c1")
         mock_msg = _mock_assistant_msg(content="", tool_calls=[tool_call])
