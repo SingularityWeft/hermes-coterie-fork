@@ -18,6 +18,18 @@
 
 set -euo pipefail
 
+# Do not inherit caller-installed executables into the test process. This
+# keeps developer tools from another account (or an interactive shell) from
+# changing collection and runtime behavior. The selected virtualenv is
+# prepended after it has been located below.
+SYSTEM_PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/nix/var/nix/profiles/default/bin"
+export PATH="$SYSTEM_PATH"
+
+# A run delegated through sudo must behave like a direct run by the target
+# user. Otherwise service-generation tests can resolve the caller's account
+# and inspect paths outside the isolated test identity.
+unset SUDO_USER SUDO_UID SUDO_GID SUDO_COMMAND 2>/dev/null || true
+
 # ── Locate repo root ────────────────────────────────────────────────────────
 # Works whether this is the main checkout or a worktree.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -44,6 +56,7 @@ if [ -z "$VENV" ]; then
 fi
 
 PYTHON="$VENV/bin/python"
+export PATH="$VENV/bin:$SYSTEM_PATH"
 
 # ── Ensure pytest-split is installed (required for shard-equivalent runs) ──
 if ! "$PYTHON" -c "import pytest_split" 2>/dev/null; then
@@ -121,7 +134,7 @@ cd "$REPO_ROOT"
 ARGS=("$@")
 
 echo "▶ running pytest with $WORKERS workers, hermetic env, in $REPO_ROOT"
-echo "  (TZ=UTC LANG=C.UTF-8 PYTHONHASHSEED=0; all credential env vars unset)"
+echo "  (TZ=UTC LANG=C.UTF-8 PYTHONHASHSEED=0; credentials unset; PATH allowlisted)"
 
 # -o "addopts=" clears pyproject.toml's `-n auto` so our -n wins.
 # We re-add --timeout/--timeout-method here because pyproject.toml's
