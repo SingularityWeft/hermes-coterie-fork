@@ -103,7 +103,8 @@ def test_codex_picker_uses_live_codex_catalog(hermes_auth_only_env, tmp_path, mo
 
     codex = next(p for p in providers if p["slug"] == "openai-codex")
     assert "gpt-5.3-codex-spark" in codex["models"]
-    assert codex["total_models"] == len(codex["models"])
+    assert len(codex["models"]) == 10
+    assert codex["total_models"] > len(codex["models"])
 
 
 @pytest.fixture()
