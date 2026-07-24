@@ -28,6 +28,19 @@ import pytest
 FOREIGN_PID = 1
 
 
+@pytest.fixture(autouse=True)
+def fake_systemctl_binary(tmp_path, monkeypatch):
+    """Exercise guard pass-through without depending on host systemd.
+
+    Blocked commands never reach this executable. Allowed read-only probes do,
+    which proves the guard released them without touching a real service.
+    """
+    fake = tmp_path / "systemctl"
+    fake.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    fake.chmod(0o700)
+    monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}")
+
+
 # ──────────────────── kill primitives ─────────────────────────
 
 
