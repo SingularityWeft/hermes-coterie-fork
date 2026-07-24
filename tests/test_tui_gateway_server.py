@@ -3938,7 +3938,7 @@ def test_browser_manage_connect_defaults_to_loopback(monkeypatch):
     assert urls[0] == "http://127.0.0.1:9222/json/version"
 
 
-def test_browser_manage_connect_default_local_reports_launch_hint(monkeypatch):
+def test_browser_manage_connect_default_local_reports_macos_launch_hint(monkeypatch):
     monkeypatch.delenv("BROWSER_CDP_URL", raising=False)
     emitted: list[tuple[str, dict]] = []
     monkeypatch.setattr(
@@ -3953,6 +3953,7 @@ def test_browser_manage_connect_default_local_reports_launch_hint(monkeypatch):
     with patch.dict(sys.modules, {"tools.browser_tool": fake}):
         _stub_urlopen(monkeypatch, ok=False)
         with (
+            patch("platform.system", return_value="Darwin"),
             patch(
                 "hermes_cli.browser_connect.try_launch_chrome_debug", return_value=False
             ),
@@ -3980,8 +3981,11 @@ def test_browser_manage_connect_default_local_reports_launch_hint(monkeypatch):
         == "Chromium-family browser isn't running with remote debugging — attempting to launch..."
     )
     assert any(
-        "No supported Chromium-family browser executable was found" in line
+        "Start a Chromium-family browser with remote debugging" in line
         for line in resp["result"]["messages"]
+    )
+    assert any(
+        'open -a "Google Chrome"' in line for line in resp["result"]["messages"]
     )
     assert any(
         "--remote-debugging-port=9222" in line for line in resp["result"]["messages"]
