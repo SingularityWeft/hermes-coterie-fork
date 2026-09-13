@@ -863,11 +863,14 @@ def handle_function_call(
     """Route a tool call through hooks/middleware to the registry; returns a JSON string.
 
     task_id isolates terminal/browser sessions; user_task feeds browser_snapshot.
-    enabled_tools picks execute_code's sandbox tools (default: the process-global
-    ``_last_resolved_tool_names``). skip_pre_tool_call_hook: caller already fired
+    enabled_tools is the session's explicit dispatch grant, including an empty
+    grant, and picks execute_code's sandbox tools (None retains the legacy
+    unrestricted dispatcher). skip_pre_tool_call_hook: caller already fired
     it (single-fire contract). enabled/disabled_toolsets scope the Tool Search
     bridge catalog to this session's grant (None = unrestricted).
     """
+    if enabled_tools is not None and function_name not in enabled_tools:
+        return json.dumps({"error": f"Tool '{function_name}' is not enabled for this session"}, ensure_ascii=False)
     function_args = coerce_tool_args(function_name, function_args)
     if not isinstance(function_args, dict):
         function_args = {}
