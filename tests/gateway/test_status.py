@@ -24,6 +24,20 @@ class TestGatewayPidState:
         assert isinstance(payload["argv"], list)
         assert payload["argv"]
 
+    @pytest.mark.parametrize("mask", [0, 0o022, 0o077])
+    def test_pid_and_scope_records_are_private_nonexecutable(self, tmp_path, monkeypatch, mask):
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        previous = os.umask(mask)
+        try:
+            status.write_pid_file()
+            scope = tmp_path / "scope.json"
+            status._write_json_excl(scope, {"pid": os.getpid()})
+        finally:
+            os.umask(previous)
+        for path in (tmp_path / "gateway.pid", scope):
+            assert path.stat().st_mode & 0o777 == 0o600
+            assert json.loads(path.read_text())["pid"] == os.getpid()
+
     def test_write_pid_file_is_atomic_against_concurrent_writers(self, tmp_path, monkeypatch):
         """Regression: two concurrent --replace invocations must not both win.
 
