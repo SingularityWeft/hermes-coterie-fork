@@ -519,9 +519,7 @@ class GatewayStartupMixin:
         sessions with a running agent are skipped so none is resumed twice."""
         # Headless private-chat operators can require a fresh inbound message
         # after a restart. Preserve resume markers for that explicit next turn.
-        user_config = getattr(getattr(self, "_ctx", None), "user_config", {}) or {}
-        gateway_config = user_config.get("gateway") or {}
-        if isinstance(gateway_config, dict) and gateway_config.get("auto_resume_interrupted", True) is False:
+        if getattr(self.config, "auto_resume_interrupted", True) is False:
             return 0
         from gateway.run import _AGENT_PENDING_SENTINEL, _auto_continue_freshness_window
         window = _auto_continue_freshness_window()
