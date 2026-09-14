@@ -68,6 +68,8 @@ class GatewayKanbanWatchersMixin:
         dispatcher respawned a crashed task). All SQLite work runs in a thread;
         one tick's failure never stops the next.
         """
+        if not getattr(getattr(self, "config", None), "kanban_enabled", True):
+            return
         try:
             from hermes_cli.config import load_config as _load_config
 
@@ -207,6 +209,8 @@ class GatewayKanbanWatchersMixin:
         toggle which is re-read every tick. The env var is an escape hatch to
         disable without editing YAML.
         """
+        if not getattr(getattr(self, "config", None), "kanban_enabled", True):
+            return None
         try:
             from hermes_cli.config import load_config as _load_config
         except Exception:
