@@ -2066,6 +2066,9 @@ DEFAULT_CONFIG = {
         "export": {"otlp": {"enabled": False, "endpoint": "", "headers_env": {}}},
     },
     "gateway": {  # Gateway settings (messaging platforms: Telegram, Discord, Slack, ...).
+        # False leaves interrupted sessions pending until a fresh inbound user
+        # message; process recovery cannot initiate an autonomous model turn.
+        "auto_resume_interrupted": True,
         # Seconds to let a SIGTERM-interrupted gateway agent unwind before adapter/database
         # teardown. Keep short so service-manager shutdowns don't exhaust their stop budget.
         "signal_interrupt_grace_timeout": 1,

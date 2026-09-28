@@ -1033,7 +1033,7 @@ def write_pid_file() -> None:
 
 def _write_json_excl(path: Path, record: dict[str, Any]) -> None:
     """Create ``path`` with O_CREAT|O_EXCL and dump ``record``; unlinks on a failed write."""
-    fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             json.dump(record, handle)

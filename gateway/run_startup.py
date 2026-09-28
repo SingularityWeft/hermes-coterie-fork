@@ -577,6 +577,10 @@ class GatewayStartupMixin:
         ``_is_resume_pending`` injection path owns the wording). Sessions whose adapter is offline stay
         ``resume_pending`` for the reconnect watcher, which re-calls this scoped to that ``platform``;
         sessions with a running agent are skipped so none is resumed twice."""
+        # Headless private-chat operators can require a fresh inbound message
+        # after a restart. Preserve resume markers for that explicit next turn.
+        if getattr(self.config, "auto_resume_interrupted", True) is False:
+            return 0
         from gateway.run import _AGENT_PENDING_SENTINEL, _auto_continue_freshness_window
         window = _auto_continue_freshness_window()
         candidates = self._resume_pending_candidates(platform)
@@ -804,16 +808,22 @@ class GatewayStartupMixin:
         return service
 
     async def _ensure_hosted_room_worker(self):
+        if not getattr(getattr(self, "config", None), "hosted_rooms_enabled", True):
+            return None
         return await asyncio.to_thread(self._start_hosted_room_worker_sync)
 
     async def _hosted_room_worker_watcher(self, interval: float = 1.0) -> None:
         """Keep the room worker alive for the messaging gateway lifetime."""
+        if not getattr(getattr(self, "config", None), "hosted_rooms_enabled", True):
+            return
         while self._running:
             await self._ensure_hosted_room_worker()
             await asyncio.sleep(interval)
 
     async def _stop_hosted_room_worker(self, timeout: float = 5.0) -> bool:
         """Pause room execution durably without interrupting accepted turns."""
+        if not getattr(getattr(self, "config", None), "hosted_rooms_enabled", True):
+            return True
         from tui_gateway import methods_groups
         return await asyncio.to_thread(methods_groups.stop_hosted_room_service, timeout=timeout)
 
@@ -1412,14 +1422,15 @@ class GatewayStartupMixin:
     async def _start_post_connect_services(self, connected_count: int) -> None:
         """Room worker, heartbeat, gateway:startup hook, channel directory, /update notice."""
         from gateway.run import _hermes_home
-        try:
-            await self._ensure_hosted_room_worker()
-        except Exception:
-            logger.error(
-                "Group Chat worker failed to start; mutating Group Chat commands "
-                "will fail closed until supervision recovers it", exc_info=True,
-            )
-        self._spawn_supervised(self._hosted_room_worker_watcher, "hosted_room_worker")
+        if getattr(getattr(self, "config", None), "hosted_rooms_enabled", True):
+            try:
+                await self._ensure_hosted_room_worker()
+            except Exception:
+                logger.error(
+                    "Group Chat worker failed to start; mutating Group Chat commands "
+                    "will fail closed until supervision recovers it", exc_info=True,
+                )
+            self._spawn_supervised(self._hosted_room_worker_watcher, "hosted_room_worker")
         self._start_loop_heartbeat_task()
         from gateway.run_heartbeat_restore import restore_heartbeat_watches
         self._start_heartbeat_poller()  # Keep retrying even when the first scan is empty.
@@ -1497,6 +1508,9 @@ class GatewayStartupMixin:
     def _start_spawn_background_watchers(self) -> None:
         """Spawn the long-lived supervised background watchers."""
         for method in self._PRE_RECONNECT_WATCHERS:
+            if (method in {"_kanban_notifier_watcher", "_kanban_dispatcher_watcher"}
+                    and not getattr(getattr(self, "config", None), "kanban_enabled", True)):
+                continue
             self._spawn_supervised(getattr(self, method), method[1:])
         if self._failed_platforms:
             logger.info(

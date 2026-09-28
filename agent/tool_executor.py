@@ -1653,7 +1653,7 @@ def _resolve_sequential_dispatch(agent, ref: _ToolCallRef, messages: list) -> _S
                 session_id=agent.session_id or "",
                 turn_id=getattr(agent, "_current_turn_id", "") or "",
                 api_request_id=getattr(agent, "_current_api_request_id", "") or "",
-                enabled_tools=list(agent.valid_tool_names) if agent.valid_tool_names else None,
+                enabled_tools=list(agent.valid_tool_names),
                 skip_pre_tool_call_hook=True,
                 skip_tool_request_middleware=True,
                 skip_tool_execution_middleware=True,

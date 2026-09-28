@@ -587,6 +587,10 @@ class GatewayConfig:
     # compatibility with external tooling and downgrade safety; set gateway.write_sessions_json: false in
     # config.yaml to stop producing the file.
     write_sessions_json: bool = True
+    auto_resume_interrupted: bool = True  # False preserves pending turns for fresh user input.
+    # Opt out of install-shared workers for a private profile-only gateway.
+    kanban_enabled: bool = True
+    hosted_rooms_enabled: bool = True
     always_log_local: bool = True  # Always save cron outputs to local files
     # Drop outbound "silence narration" (*(silent)*, 🔇, a bare ".") that ping-pongs in bot-to-bot
     # channels; a substrate guard that survives prompt drift.
@@ -631,7 +635,8 @@ class GatewayConfig:
 
     # Scalar fields serialized verbatim by ``to_dict`` (in output order).
     _SCALAR_DICT_FIELDS = (
-        "write_sessions_json", "always_log_local", "filter_silence_narration", "stt_enabled",
+        "write_sessions_json", "auto_resume_interrupted", "kanban_enabled", "hosted_rooms_enabled",
+        "always_log_local", "filter_silence_narration", "stt_enabled",
         "stt_echo_transcripts", "group_sessions_per_user", "thread_sessions_per_user",
         "max_concurrent_sessions", "multiplex_profiles",
         "room_link_url", "systemd_watchdog_seconds", "loop_watchdog",
@@ -780,6 +785,9 @@ class GatewayConfig:
             multiplex_profiles=None if multiplex_profiles is None else _coerce_bool(multiplex_profiles, True),
             room_link_url=room_link_url if isinstance(room_link_url, str) else None,
             systemd_watchdog_seconds=systemd_watchdog_seconds,
+            auto_resume_interrupted=_coerce_bool(pick("auto_resume_interrupted"), True),
+            kanban_enabled=_coerce_bool(pick("kanban_enabled"), True),
+            hosted_rooms_enabled=_coerce_bool(pick("hosted_rooms_enabled"), True),
             loop_watchdog=_coerce_bool(pick("loop_watchdog"), True),
             loop_watchdog_probe_interval_s=bounded_float("loop_watchdog_probe_interval_s", DEFAULT_LOOP_WATCHDOG_INTERVAL_S, 1.0, 3600.0),
             loop_watchdog_probe_timeout_s=bounded_float("loop_watchdog_probe_timeout_s", DEFAULT_LOOP_WATCHDOG_TIMEOUT_S, 1.0, 600.0),

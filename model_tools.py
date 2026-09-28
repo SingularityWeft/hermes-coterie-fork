@@ -749,6 +749,34 @@ def _dispatch_bridge_tool(function_name: str, function_args: Dict[str, Any],
     return None, (underlying_name, underlying_args)
 
 
+def _session_dispatch_error(function_name, function_args, enabled_tools, enabled_toolsets, disabled_toolsets):
+    """A visible tool_call grants only the scoped, schema-checked deferred catalog.
+
+    Executor unwrapping and connector batches re-enter under concrete names.
+    Revalidate that capability without changing the model-facing tool list.
+    """
+    if enabled_tools is None or function_name in enabled_tools:
+        return None
+    denied = tool_error(f"Tool '{function_name}' is not enabled for this session")
+    if "tool_call" not in enabled_tools:
+        return denied
+    bridged = _dispatch_bridge_tool(
+        "tool_call", {"calls": [{"name": function_name, "arguments": function_args}]},
+        enabled_toolsets, disabled_toolsets,
+    )
+    if bridged is None:
+        return denied
+    result, underlying = bridged
+    if underlying is None:
+        return result or denied
+    if underlying[0] == function_name:
+        return None
+    from tools.connectors import CONNECTOR_BATCH_SENTINEL, is_connector_name
+    if underlying[0] == CONNECTOR_BATCH_SENTINEL and is_connector_name(function_name):
+        return None  # The bridge checked the session's connections capability.
+    return denied
+
+
 def _apply_request_middleware(
     function_name: str, function_args: Dict[str, Any], ids: _CallIds, trace: List[Dict[str, Any]],
 ) -> Tuple[Dict[str, Any], Dict[str, Any], List[Dict[str, Any]]]:
@@ -880,16 +908,20 @@ def handle_function_call(
     """Route a tool call through hooks/middleware to the registry; returns a JSON string.
 
     task_id isolates terminal/browser sessions; user_task feeds browser_snapshot.
-    enabled_tools picks execute_code's sandbox tools (default: the process-global
-    ``_last_resolved_tool_names``). skip_pre_tool_call_hook: caller already fired
+    enabled_tools is the session's explicit dispatch grant, including an empty
+    grant, and picks execute_code's sandbox tools (None retains the legacy
+    unrestricted dispatcher). skip_pre_tool_call_hook: caller already fired
     it (single-fire contract). enabled/disabled_toolsets scope the Tool Search
     bridge catalog to this session's grant (None = unrestricted).
     """
+    function_name = _LEGACY_TOOL_ALIASES.get(function_name, function_name)
     function_args = coerce_tool_args(function_name, function_args)
     if not isinstance(function_args, dict):
         function_args = {}
+    denied = _session_dispatch_error(function_name, function_args, enabled_tools, enabled_toolsets, disabled_toolsets)
+    if denied is not None:
+        return denied
     trace = list(tool_request_middleware_trace or [])
-    function_name = _LEGACY_TOOL_ALIASES.get(function_name, function_name)
     ids = _CallIds(task_id, session_id, tool_call_id, turn_id, api_request_id)
     start = time.monotonic()
 
