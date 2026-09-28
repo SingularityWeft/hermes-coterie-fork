@@ -213,7 +213,10 @@ class GatewayAdapterLifecycleMixin:
 
         Idempotent if already queued. See #80598.
         """
-        if not adapter.fatal_error_retryable:
+        # Some adapters delegate recovery to a bounded process supervisor instead
+        # of the unlimited in-process reconnect watcher.
+        if (not adapter.fatal_error_retryable
+                or getattr(adapter, "fatal_error_restart_required", False) is True):
             return False
         platform_config = self.config.platforms.get(adapter.platform)
         if not platform_config:
@@ -279,7 +282,8 @@ class GatewayAdapterLifecycleMixin:
             platform = adapter.platform
             shutdown_event = getattr(self, "_shutdown_event", None)
             if (
-                adapter.fatal_error_retryable
+                (adapter.fatal_error_retryable
+                 or getattr(adapter, "fatal_error_restart_required", False) is True)
                 and platform not in self.adapters
                 and platform not in getattr(self, "_failed_platforms", {})
                 and not (shutdown_event is not None and shutdown_event.is_set())
@@ -338,7 +342,8 @@ class GatewayAdapterLifecycleMixin:
             await self._safe_adapter_disconnect(adapter, adapter.platform)
         if not self.adapters and not self._failed_platforms:
             self._exit_reason = adapter.fatal_error_message or "All messaging adapters disconnected"
-            if adapter.fatal_error_retryable:
+            if (adapter.fatal_error_retryable
+                    or getattr(adapter, "fatal_error_restart_required", False) is True):
                 self._exit_with_failure = True
                 logger.error("No connected messaging platforms remain. Shutting down gateway for service restart.")
             else:

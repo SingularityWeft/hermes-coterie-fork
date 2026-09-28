@@ -153,3 +153,13 @@ gateway under the backend, and do NOT "fix" update locks by widening the tree-ki
 assert on hardcoded platform lists or command counts (root: no change-detectors). Session-key and
 guard behaviour are invariants worth a test; platform API quirks belong in connector comments +
 tests, not in prose.
+
+## Supervisor-owned transport recovery
+
+An adapter may expose `fatal_error_restart_required = True` for a transient fatal
+transport failure that must use the process supervisor's restart budget. The runner
+does not enqueue that adapter in the unlimited reconnect watcher; when no adapters
+or queued recoveries remain, it shuts down with failure. Default/absent is false, so
+terminal credentials/configuration failures still stop cleanly. Cusp's pinned plugin
+sets this only for native retryable `telegram_network_error`; it does not change
+permissions, intentional stops or the supervisor's retry limit.
